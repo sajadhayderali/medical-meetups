@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>خريطة الأندية الطلابية الطبية بالعراق</title>
+
+<!-- خطوط حديثة -->
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+/* ====== Base page ====== */
+body{
+  margin:0;
+  background:#0a0a12;
+  color:#fff;
+  font-family:"Cairo","Inter","Noto Sans Arabic",system-ui,sans-serif;
+}
+
+/* ====== Header ====== */
+header{
+  text-align:center;
+  padding:16px;
+  color:#e5ecff;
+  position:relative;
+  text-shadow:0 0 8px rgba(0,140,255,.8);
+}
+header::after{
+  content:"";
+  position:absolute;
+  top:0;
+  left:50%;
+  width:260px;
+  height:120px;
+  transform:translateX(-50%);
+  background:radial-gradient(circle at 50% 20%,rgba(0,140,255,.25)0%,rgba(0,0,0,0)70%);
+  filter:blur(30px);
+  opacity:.6;
+  pointer-events:none;
+}
+.header-wrap{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
+.main-headline{
+  font-size:1.4rem;
+  font-weight:700;
+  line-height:1.3;
+  color:#fff;
+  letter-spacing:-0.02em;
+  text-shadow:
+    0 0 10px rgba(0,140,255,.9),
+    0 0 30px rgba(0,140,255,.4);
+}
+.sub-headline{
+  font-size:.8rem;
+  font-weight:500;
+  line-height:1.4;
+  color:#7dd3fc;
+  letter-spacing:-0.03em;
+  text-shadow:
+    0 0 8px rgba(0,140,255,.6),
+    0 0 20px rgba(0,140,255,.3);
+  direction:ltr;
+  unicode-bidi:plaintext;
+}
+
+#map{
+  width:100%;
+  height:80vh;
+  background:#000914;
+}
+
+/* ====== Leaflet map styling ====== */
+.leaflet-tile-pane{
+  filter:brightness(.4) saturate(1.2) hue-rotate(190deg);
+}
+.province-border{
+  filter:drop-shadow(0 0 6px rgba(0,140,255,.9));
+}
+.province-label{
+  color:#7dd3fc;
+  font-size:12px;
+  text-shadow:
+    0 0 6px rgba(0,140,255,.7),
+    0 0 20px rgba(0,140,255,.4);
+  white-space:nowrap;
+}
+
+/* ====== Club marker icon (bigger) ====== */
+.club-marker-wrapper{
+  position:relative;
+  width:56px;
+  height:56px;
+}
+.club-glow{
+  position:absolute;
+  left:50%;top:50%;
+  width:80px;
+  height:80px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(0,140,255,.35)0%,rgba(0,140,255,0)70%);
+  transform:translate(-50%,-50%);
+  animation:pulseGlow 2.5s infinite;
+}
+@keyframes pulseGlow{
+  0%{opacity:.6;transform:translate(-50%,-50%) scale(.9);}
+ 50%{opacity:.2;transform:translate(-50%,-50%) scale(1.2);}
+100%{opacity:.6;transform:translate(-50%,-50%) scale(.9);}
+}
+.club-marker-badge{
+  position:absolute;
+  left:50%;top:50%;
+  width:56px;
+  height:56px;
+  border-radius:14px;
+  background:rgba(4,15,30,.9);
+  border:1px solid rgba(0,140,255,.8);
+  transform:translate(-50%,-50%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  box-shadow:
+    0 0 10px rgba(0,140,255,.6),
+    0 0 30px rgba(0,140,255,.4),
+    0 0 60px rgba(0,140,255,.2);
+}
+.club-marker-badge img{
+  width:85%;
+  height:85%;
+  object-fit:contain;
+  pointer-events:none;
+}
+
+/* ====== Modal overlay ====== */
+#clubModalOverlay{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.6);
+  padding:16px;
+  z-index:9999;
+}
+
+/* ====== Wide modal box ====== */
+#clubModalBox{
+  background:#0f172a;
+  border:1px solid rgba(0,140,255,.5);
+  border-radius:20px;
+  width:100%;
+  max-width:900px;
+  max-height:80vh;
+  display:flex;
+  flex-direction:row;
+  overflow:hidden;
+  position:relative;
+  box-shadow:
+    0 30px 140px rgba(0,140,255,.5),
+    0 60px 200px rgba(0,0,0,.9);
+  color:#fff;
+  direction:rtl;
+  text-align:right;
+  font-family:"Cairo","Inter","Noto Sans Arabic",system-ui,sans-serif;
+}
+@media (max-width:700px){
+  #clubModalBox{
+    flex-direction:column;
+    max-width:95vw;
+  }
+}
+
+/* ====== side panel (logo, title, tabs) ====== */
+.modal-side{
+  width:260px;
+  min-width:260px;
+  max-width:260px;
+  border-left:1px solid rgba(0,140,255,.2);
+  background:#0f172a;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  padding-bottom:60px;
+}
+@media (max-width:700px){
+  .modal-side{
+    width:100%;
+    max-width:none;
+    border-left:none;
+    border-bottom:1px solid rgba(0,140,255,.2);
+  }
+}
+
+/* close button */
+#closeModalBtn{
+  position:absolute;
+  left:16px;
+  top:16px;
+  background:rgba(15,23,42,.8);
+  color:#9ca3af;
+  border:1px solid rgba(148,163,184,.3);
+  border-radius:8px;
+  font-size:.8rem;
+  line-height:1;
+  padding:6px 10px;
+  cursor:pointer;
+  z-index:10;
+}
+
+/* header row (logo + text) */
+.modal-header-row{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:20px 20px 12px;
+}
+.modal-logo-box{
+  width:64px;
+  height:64px;
+  flex-shrink:0;
+  border-radius:14px;
+  background:rgba(4,15,30,.9);
+  border:1px solid rgba(0,140,255,.8);
+  box-shadow:
+    0 0 10px rgba(0,140,255,.9),
+    0 0 40px rgba(0,140,255,.6),
+    0 0 80px rgba(0,140,255,.4);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+.modal-logo-box img{
+  max-width:80%;
+  max-height:80%;
+  object-fit:contain;
+}
+.modal-header-texts{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.modal-title{
+  font-weight:600;
+  font-size:1rem;
+  line-height:1.4;
+  color:#fff;
+  text-shadow:0 0 8px rgba(0,140,255,.8);
+}
+.modal-sub{
+  font-size:.8rem;
+  line-height:1.3;
+  color:#7dd3fc;
+}
+
+/* tabs list */
+.modal-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:12px 20px 20px;
+  background:#0f172a;
+  border-top:1px solid rgba(0,140,255,.3);
+  border-bottom:1px solid rgba(0,140,255,.2);
+  max-height:calc(80vh - 160px);
+  overflow-y:auto;
+}
+@media (max-width:700px){
+  .modal-tabs{
+    max-height:none;
+    flex-direction:row;
+  }
+}
+.modal-tabs::-webkit-scrollbar{
+  width:4px;
+}
+.modal-tabs::-webkit-scrollbar-thumb{
+  background:#008cff;
+  border-radius:2px;
+  box-shadow:0 0 10px #008cff;
+}
+.tab-btn{
+  background:rgba(0,140,255,.08);
+  border:1px solid rgba(0,140,255,.4);
+  color:#7dd3fc;
+  font-size:.7rem;
+  font-weight:500;
+  line-height:1.2;
+  padding:8px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  width:100%;
+  text-align:center;
+  box-shadow:
+    0 0 8px rgba(0,140,255,.5),
+    0 0 24px rgba(0,140,255,.3);
+}
+.tab-btn.active{
+  background:rgba(0,140,255,.18);
+  color:#fff;
+  text-shadow:0 0 8px rgba(0,140,255,.8);
+  border-color:rgba(0,140,255,.8);
+  box-shadow:
+    0 0 10px rgba(0,140,255,.9),
+    0 0 40px rgba(0,140,255,.6),
+    0 0 80px rgba(0,140,255,.4);
+}
+
+/* ====== main content panel ====== */
+.modal-main{
+  flex:1;
+  min-width:0;
+  background:#0a0f1e radial-gradient(circle at 50% 0%,rgba(0,140,255,.15)0%,rgba(0,0,0,0)60%);
+  padding:20px;
+  overflow-y:auto;
+  max-height:80vh;
+  font-size:.8rem;
+  line-height:1.6;
+  color:#e2e8f0;
+  text-shadow:0 0 6px rgba(0,140,255,.4);
+  white-space:normal;
+}
+.modal-main::-webkit-scrollbar{
+  width:4px;
+}
+.modal-main::-webkit-scrollbar-track{
+  background:#1e253b;
+}
+.modal-main::-webkit-scrollbar-thumb{
+  background:#008cff;
+  border-radius:2px;
+  box-shadow:0 0 10px #008cff;
+}
+.hint-block{
+  color:#7dd3fc;
+  font-size:.75rem;
+  text-shadow:0 0 6px rgba(0,140,255,.4);
+  margin-bottom:12px;
+}
+
+/* image block inside tab content */
+.modal-image-block{
+  margin-top:16px;
+  background:#0a1224;
+  border:1px solid rgba(0,140,255,.4);
+  border-radius:12px;
+  padding:10px;
+  box-shadow:
+    0 0 10px rgba(0,140,255,.6),
+    0 0 40px rgba(0,140,255,.3),
+    0 0 80px rgba(0,140,255,.15);
+  text-align:center;
+  max-width:320px;
+}
+.modal-image-block img{
+  max-width:100%;
+  height:auto;
+  border-radius:8px;
+  box-shadow:
+    0 0 8px rgba(0,140,255,.7),
+    0 0 32px rgba(0,140,255,.4);
+}
+.modal-image-caption{
+  font-size:.7rem;
+  line-height:1.4;
+  color:#7dd3fc;
+  margin-top:8px;
+  text-shadow:0 0 6px rgba(0,140,255,.6);
+  white-space:normal;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-wrap">
+    <div class="main-headline">خريطة الأندية الطلابية الطبية بالعراق</div>
+    <div class="sub-headline">Iraq Medical Student Clubs Map</div>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<!-- ====== MODAL (Wide) ====== -->
+<div id="clubModalOverlay">
+  <div id="clubModalBox">
+
+    <aside class="modal-side">
+      <button id="closeModalBtn">إغلاق ✕</button>
+
+      <div class="modal-header-row">
+        <div class="modal-logo-box">
+          <img id="modalLogo" src="" alt="club logo">
+        </div>
+        <div class="modal-header-texts">
+          <div class="modal-title" id="modalTitle">Club Name</div>
+          <div class="modal-sub" id="modalSub">University / City</div>
+        </div>
+      </div>
+
+      <div class="modal-tabs" id="modalTabs"></div>
+    </aside>
+
+    <section class="modal-main" id="modalContent">
+      <div class="hint-block">اختر قسم من القائمة 👈</div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+/* ========= init map ========= */
+const map = L.map('map', {
+  zoomControl:true,
+  minZoom:5,
+  maxZoom:12
+}).setView([32.9,44.4],7);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:18
+}).addTo(map);
+
+/* رسم حدود المحافظات + أسماء المحافظات */
+fetch('iq.json')
+  .then(r=>r.json())
+  .then(geo=>{
+    L.geoJSON(geo,{
+      style:{
+        color:'rgba(0,140,255,.9)',
+        weight:1.4,
+        fillOpacity:0,
+        className:'province-border'
+      }
+    }).addTo(map);
+
+    geo.features.forEach(f=>{
+      const name = f.properties.NAME_1 || f.properties.ADMIN1NAME || "";
+      if(!name) return;
+      const center = L.geoJSON(f).getBounds().getCenter();
+      L.marker(center,{
+        interactive:false,
+        icon:L.divIcon({
+          className:'province-label',
+          html:name,
+          iconSize:[80,20],
+          iconAnchor:[40,10]
+        })
+      }).addTo(map);
+    });
+  });
+
+/* helper: build image block HTML if we have image */
+function buildImageBlock(src, caption){
+  if(!src) return "";
+  return `
+    <div class="modal-image-block">
+      <img src="${src}" alt="">
+      <div class="modal-image-caption">${caption || ""}</div>
+    </div>
+  `;
+}
+
+/* ========= club data ========= */
+/* IMPORTANT images/logos that must exist next to this file:
+   - Final logos _20250718_191107_0000.png  (نهرين / أطباء الغد)
+   - smec-logo.png                          (SMEC بابل)
+   - baghdad-bookclub.png                   (Book Club بغداد)
+   - debate-logo.png                        (نادي المناظرات السبطين / كربلاء)
+   - medical.jpg                            (لوغو النادي الطبي الطلابي بجامعة العميد)
+   - photo-1.jpg, photo-2.jpg, photo-3.jpg, photo-4.jpg   (SMEC)
+   - sub-1.JPG, sub-3.JPG, sub-4.JPG                     (المناظرات / السبطين)
+   - ameed-1.jpg, ameed-2.jpg, ameed-3.jpg, ameed-4.jpg  (العميد)
+*/
+
+const clubData = {
+  nahrain: {
+    title: 'Al-Nahrain Magazine – "Doctors of Tomorrow"',
+    sub: 'Al-Nahrain College of Medicine | "From students, to students"',
+    logo: 'Final logos _20250718_191107_0000.png',
+    lat: 33.38,
+    lng: 44.39,
+    tabs: [
+      {
+        label: 'Who We Are',
+        content:
+`A student-led medical magazine and platform created because our college had almost no student life.
+We wanted a space where students are seen not just as people who study medicine — but as creators, thinkers, and future doctors with a voice.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'Why We Started',
+        content:
+`• There was no real community: students studied, went home, repeated.
+• Achievements were happening quietly (competitions, talents, art) with no visibility.
+• Communication between students and faculty was weak.
+• Professors kept talking about the "old Nahrain magazine".
+• We ran a survey: 200+ responses, ~98% said "we need this".`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'Goals',
+        content:
+`1. Build a real student community.
+2. Give students a stage for creativity (writing, art, photography).
+3. Document student activity so it doesn’t disappear.
+4. Represent the student voice respectfully to the college.
+5. Grow skills: teamwork, ownership, feedback.
+6. Prove students aren’t just listeners — they are agents of change.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'What We Do',
+        content:
+`• We publish a biannual magazine.
+• We open submissions (poems, stories, art, photography) to ALL students.
+• Two full editions released, third in progress.
+• Summer student-led program:
+  study skills, time management, collage/art workshops.
+  250+ students from 10+ colleges joined.
+• Reached 1,500+ readers.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'Identity',
+        content:
+`Visual identity: blue / white / hint of yellow.
+Tagline: "From students to students".
+We keep an Iraqi/Arabic character, not a generic imported look.
+It's student-owned, confident, and honest.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: "What's Next",
+        content:
+`• Third edition is on the way.
+• A doctor–patient relationship awareness campaign with other Iraqi student groups.
+• More direct, respectful advocacy between students and faculty.`,
+        image: null,
+        caption: null
+      }
+    ]
+  },
+
+  smec: {
+    title: 'SMEC',
+    sub: 'College of Medicine – Babylon (Hillah)',
+    logo: 'smec-logo.png',
+    lat: 32.49,
+    lng: 44.43,
+    tabs: [
+      {
+        label: 'Who We Are',
+        content:
+`SMEC (Students Medical Education Committee) is a student-led structure inside Babylon College of Medicine.
+It's an official bridge between students and administration. We make sure the student voice is actually heard,
+documented, and acted on — not treated like "complaining".`,
+        image: 'photo-1.jpg',
+        caption: 'SMEC presenting student voice directly to faculty leadership at Babylon College of Medicine.'
+      },
+      {
+        label: 'Our Mission',
+        content:
+`We normalize feedback culture.
+
+We teach students how to give constructive academic & clinical feedback.
+We train them to talk to faculty professionally.
+We show professors that student feedback can be organized, respectful, and useful — not drama.
+
+The idea is: feedback should improve teaching, not start a fight.`,
+        image: 'photo-2.jpg',
+        caption: 'Workshop: "How to Give Effective Feedback" — respectful communication, not confrontation.'
+      },
+      {
+        label: 'What We Do',
+        content:
+`• Sessions on feedback, professionalism, and reflection.
+• We collect curriculum/teaching/exam issues from students,
+  then present them in a structured way to the college.
+• We bring doctors and students into the same room, face to face,
+  to talk like partners — not enemies.`,
+        image: 'photo-3.jpg',
+        caption: 'Live student–faculty discussion. Students act as collaborators in improving teaching.'
+      },
+      {
+        label: 'Why It Matters',
+        content:
+`In many Iraqi medical schools, students feel powerless.
+
+SMEC is changing that at Babylon:
+- Students learn advocacy early.
+- Faculty sees students as serious partners.
+- The college gets continuous improvement instead of crisis firefighting.
+
+This model can spread to other Iraqi colleges, not just stay in Babylon.`,
+        image: 'photo-4.jpg',
+        caption: 'Reflection session: honest review of what worked and what needs to change next.'
+      }
+    ]
+  },
+
+  bookclub: {
+    title: 'BMC / ISUMEC Medical Book Club',
+    sub: 'Baghdad College of Medicine',
+    logo: 'baghdad-bookclub.png',
+    lat: 33.29,
+    lng: 44.36,
+    tabs: [
+      {
+        label: 'Who We Are',
+        content:
+`The Baghdad Medical College (BMC) Students’ Book Club is a student-led initiative
+supervised by the Medical Education Unit and the Women’s Affairs Unit.
+
+We bring together medical students who care about reading, ethics, humanity in medicine,
+identity, mental health, and reflection — not just memorizing lectures.
+
+We’re building a safe space to talk like humans, not just “future doctors”.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'Why We Exist',
+        content:
+`There are almost no student-led clubs at the college.
+That means talent, leadership, and ideas go unused.
+
+Without a space like this, we lose:
+• belonging and community
+• teamwork and networking
+• chances to practice responsibility before becoming doctors
+
+Medical education is not only exams — it’s who you’re becoming.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'How It Works',
+        content:
+`We are organized.
+
+Core team:
+• Supervising doctor
+• 2 founders
+• Fixed-year roles:
+  - President
+  - Graphics
+  - Archiver
+  - Social Media
+  - Theme Tracker
+• Monthly rotating roles:
+  - Moderator
+  - Logistics
+  - Quote Collectors
+
+Every meeting is intentional, not random.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'What We’ve Done',
+        content:
+`We host themed reading & discussion meetings:
+
+• "The Doctors Blackwell" (Women in medicine / April)
+• "When Breath Becomes Air" (mortality, empathy)
+• "The Immortal Life of Henrietta Lacks" (ethics, consent)
+• "The Yellow Wallpaper" (mental health, gender)
+• Strategy meetings to shape the club’s future.
+
+Usually 10–15 people per session; sometimes we invite faculty
+so professors actually sit and listen to students.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'Impact & Feedback',
+        content:
+`After every session, we collect structured feedback:
+- What felt safe / unsafe?
+- What topics people want next?
+- Did you feel heard?
+
+Then we iterate. It's continuous improvement, not one-time events.`,
+        image: null,
+        caption: null
+      },
+      {
+        label: 'Future',
+        content:
+`Short-term:
+• Formal approval and stability.
+
+Long-term:
+• Each year, new student leaders inherit the club.
+• The club becomes a platform, not just a meeting.
+• Reflection and humanity in medicine become part of normal training — not an exception.`,
+        image: null,
+        caption: null
+      }
+    ]
+  },
+
+  debate: {
+    title: 'Debate Club / نادي المناظرات',
+    sub: 'Al-Sibtayn University | Karbala',
+    logo: 'debate-logo.png',
+    lat: 32.6144,
+    lng: 44.0246,
+    tabs: [
+      {
+        label: 'Who We Are',
+        content:
+`Debate Club (نادي المناظرات) is a student-led platform that trains medical students
+to speak clearly, defend ideas ethically, and represent their college with confidence.
+
+We don’t just argue. We practice structured thinking, respectful challenge,
+and how to build a case under pressure — all skills a doctor actually needs.
+
+This club is part of a wider "student presence" movement:
+students being visible, professional, and taken seriously, not just sitting quietly.`,
+        image: 'sub-4.JPG',
+        caption: 'Student representatives alongside leadership, showing students as visible partners — not background.'
+      },
+      {
+        label: 'Why Debate Matters',
+        content:
+`In real medicine you’ll explain, defend, and negotiate:
+• with patients
+• with other doctors
+• with hospital administration
+• in conferences and boards
+
+Debate builds:
+- clarity instead of mumbling
+- confidence instead of fear
+- ethical persuasion instead of shouting
+
+We want future Iraqi doctors who can speak for patients — not just memorize for exams.`,
+        image: 'sub-3.JPG',
+        caption: 'Professional, high-stakes discussion setting: students practicing structured argument and respectful pushback.'
+      },
+      {
+        label: 'What We Do',
+        content:
+`• Internal debate practice:
+  - time-limited arguments
+  - scenario-style cases ("You are the physician. Defend your decision.")
+  - respectful counter-arguments
+
+• Media & presence:
+  we train students how to speak in public events, not freeze.
+
+• Representation:
+  members appear in academic/medical events and talk on behalf of students professionally.`,
+        image: 'sub-1.JPG',
+        caption: 'Student delegation at a national-level medical conference (Iraqi Cancer Board Conference).'
+      },
+      {
+        label: 'Impact & Presence',
+        content:
+`This is not a hobby club.
+
+Members:
+• represent students at national conferences,
+• meet with academic / institutional leadership,
+• help push student perspective into serious rooms (not just group chats).
+
+When students show up prepared and respectful,
+administration starts treating them like partners — not children.`,
+        image: 'sub-4.JPG',
+        caption: 'Students Media / formal presence: students standing next to decision-makers, not behind them.'
+      },
+      {
+        label: 'Future & Vision',
+        content:
+`Short-term:
+• Build a consistent debate culture in Karbala: regular sessions, internal tournaments.
+
+Mid-term:
+• Connect with other medical schools for inter-university debates
+  about ethics, patient rights, and public health.
+
+Long-term:
+• Normalize "student voice" inside Iraqi medical education.
+  Goal isn’t drama — it’s producing doctors who can defend patients,
+  explain science, and speak with integrity.`,
+        image: 'sub-3.JPG',
+        caption: 'From local practice → national-level representation. We’re training the next generation of voices in Iraqi medicine.'
+      }
+    ]
+  },
+
+  ameed: {
+    title: 'Medical Students’ Club',
+    sub: 'Al-Ameed University / كلية الطب – كربلاء',
+    logo: 'medical.jpg',
+    lat: 32.6144,
+    lng: 44.05, // إزاحة بسيطة حتى يبتعد عن نادي المناظرات
+    tabs: [
+      {
+        label: 'Vision & Purpose',
+        content:
+`Main Purpose:
+The Medical Students' Club strengthens medical education through active learning,
+patient safety awareness, research culture, professionalism, and positive attitudes.
+
+It acts as a bridge between students and faculty, creating shared responsibility
+and continuous improvement in both knowledge and behavior.
+
+Long-Term Vision:
+We aim to become a national model for student-led medical education reform — where:
+• learning is interactive,
+• safety is prioritized,
+• research is routine,
+• professionalism is the foundation.
+
+We want to graduate doctors who are:
+• competent in evidence-based practice,
+• committed to patient safety and ethics,
+• curious about discovery and innovation,
+• compassionate and professional in every interaction.
+
+The message:
+"Improving medical education, empowering research, ensuring safety,
+and shaping the professional identity of future doctors."`,
+        image: 'ameed-1.jpg',
+        caption: 'ملتقى النادي الطبي الطلابي — الهوية البصرية، الوعي بالتعليم، والثقافة المهنية عند الطلبة.'
+      },
+      {
+        label: 'Structure',
+        content:
+`This is an officially recognized, student-led organization
+under Al-Ameed College of Medicine, with academic supervision
+from the Dean, the Medical Education Unit, and faculty mentors.
+
+Supervisory Board:
+• Dean
+• Head of the Medical Education Unit
+• Quality Assurance Officer
+• Faculty Mentors for each division
+
+Administrative Council:
+• President / Vice Presidents
+
+Divisions (Committees):
+1. Medical Education
+2. Scientific Research
+3. Patient Safety
+4. Community Service
+5. Academic Sciences
+6. Oncology Research Team
+
+Support Roles:
+Media Coordinator, Treasurer, Event Organizer, Documentation Officer
+
+Membership:
+Open to all medical students (1st–6th year) who commit to excellence,
+teamwork, and volunteerism.
+
+This structure aligns student initiative with the college’s academic goals,
+and trains real leadership — not just attendance.`,
+        image: 'ameed-3.jpg',
+        caption: 'جلسات نقاش مهنية مع دكاترة وقادة اختصاص: الطلبة يتعلمون يحكون بوضوح ومسؤولية قدّام أصحاب القرار.'
+      },
+      {
+        label: 'Core Programs',
+        content:
+`1. Peer Learning Program (PLP)
+Senior students tutor juniors using SGT (Small Group Teaching)
+and CBL (Case-Based Learning).
+Phases:
+  1. Tutor briefing
+  2. Interactive case discussion
+  3. Self-directed study
+  4. Formative assessment + feedback
+Goal: active understanding, not passive memorization.
+Impact: improves knowledge, teamwork, communication, teaching skills.
+
+2. Medical Research Workshops
+Step-by-step training in study design, data collection, analysis, and writing.
+Students start real small-group research under mentorship
+and prepare for national conferences and publications.
+
+3. Patient Safety & Quality
+Campaigns and trainings in:
+  - error prevention
+  - infection control
+  - communication
+  - ethics of safe practice
+Students learn to recognize unsafe behaviors early, and see safety as
+their personal responsibility — not “hospital bureaucracy”.
+
+4. Professionalism & Leadership
+Every activity reinforces respectful behavior, empathy,
+accountability, and communication.
+Senior students are expected to lead by example.
+
+5. Community Health & Outreach
+Free check-ups, awareness visits, and health campaigns
+with hospitals and local institutions.
+Students don’t just study medicine — they serve people.`,
+        image: 'ameed-4.jpg',
+        caption: 'تعليم سريري فعلي: طلاب يساعدون بعض عملياً، يربطون النظري بالمسؤولية الواقعية تجاه المريض.'
+      },
+      {
+        label: 'Impact',
+        content:
+`• 200+ students have actively participated.
+• 60+ trained peer tutors in PLP.
+• Stronger academic confidence in junior students.
+• Noticeable improvement in professionalism and teamwork attitudes.
+• Higher student participation in research & poster presentations.
+• Recognition from the College Administration as a model of student-driven medical education.
+• Stronger awareness of safety, ethics, and quality-of-care culture.
+
+This is changing the learning culture:
+from passive → active,
+from isolated → collaborative,
+from "just pass exams" → "become a responsible professional."`,
+        image: 'ameed-2.jpg',
+        caption: 'نظام تعليم منظم داخل القاعة: مو بس محاضرة، لكن رؤية واضحة عن الأهداف، التعلّم، التقييم، والتحسين المستمر.'
+      },
+      {
+        label: 'Quality & Evaluation',
+        content:
+`We run on continuous improvement using a PDCA-style loop:
+
+1. Plan:
+Define goals, audience, and learning outcomes
+(with faculty supervision).
+
+2. Do:
+Run workshops, PLP sessions, safety training,
+and research practice with trained student leaders.
+
+3. Check:
+Collect structured feedback (forms, peer evals, reflection meetings,
+mentor observation). We assess:
+  - content quality
+  - engagement
+  - professionalism / ethics / communication style
+
+4. Act:
+Analyze feedback, adjust the next round,
+and report to Quality Assurance to keep standards rising.
+
+We don’t measure only grades.
+We also measure how you communicate,
+how you respect patients,
+how you carry yourself as a future doctor.
+
+The goal isn’t just “smart students”.
+The goal is safe, ethical, professional doctors that Iraq can trust.`,
+        image: 'ameed-2.jpg',
+        caption: 'تقييم، مراجعة، تعديل. النادي يتعامل مع التعليم الطبي كشيء حي يقدر يتطور كل أسبوع، مو شي جامد.'
+      }
+    ]
+  }
+};
+
+/* ====== modal elements ====== */
+const overlayEl    = document.getElementById("clubModalOverlay");
+const modalLogoEl  = document.getElementById("modalLogo");
+const modalTitleEl = document.getElementById("modalTitle");
+const modalSubEl   = document.getElementById("modalSub");
+const modalTabsEl  = document.getElementById("modalTabs");
+const modalContentEl = document.getElementById("modalContent");
+const closeBtn     = document.getElementById("closeModalBtn");
+
+/* open modal for a club */
+function openModalForClub(club){
+  modalLogoEl.src = club.logo;
+  modalTitleEl.textContent = club.title;
+  modalSubEl.textContent   = club.sub;
+
+  modalTabsEl.innerHTML = "";
+  modalContentEl.innerHTML = `<div class="hint-block">اختر قسم من القائمة 👈</div>`;
+
+  if (club.tabs && club.tabs.length){
+    club.tabs.forEach((section, idx)=>{
+      const btn = document.createElement("button");
+      btn.className = "tab-btn" + (idx===0 ? " active":"");
+      btn.textContent = section.label;
+
+      btn.addEventListener("click", ()=>{
+        [...modalTabsEl.querySelectorAll(".tab-btn")]
+          .forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+
+        modalContentEl.innerHTML = `
+          <div>${section.content.replace(/\n/g,"<br/>")}</div>
+          ${buildImageBlock(section.image, section.caption)}
+        `;
+      });
+
+      modalTabsEl.appendChild(btn);
+
+      // أول تب ينعرض مباشرة
+      if(idx===0){
+        modalContentEl.innerHTML = `
+          <div>${section.content.replace(/\n/g,"<br/>")}</div>
+          ${buildImageBlock(section.image, section.caption)}
+        `;
+      }
+    });
+  } else {
+    modalTabsEl.innerHTML = "";
+    modalContentEl.innerHTML = `
+      <div>${(club.popup || "لا توجد تفاصيل بعد").replace(/\n/g,"<br/>")}</div>
+    `;
+  }
+
+  overlayEl.style.display = "flex";
+}
+
+/* close modal */
+function closeModal(){
+  overlayEl.style.display = "none";
+}
+closeBtn.addEventListener("click", closeModal);
+overlayEl.addEventListener("click", e=>{
+  if(e.target===overlayEl) closeModal();
+});
+
+/* ====== marker factory (bigger icons) ====== */
+function makeClubIcon(logo){
+  const html = `
+    <div class="club-marker-wrapper">
+      <div class="club-glow"></div>
+      <div class="club-marker-badge">
+        <img src="${logo}" alt="club logo"/>
+      </div>
+    </div>`;
+  return L.divIcon({
+    className:"",
+    html,
+    iconSize:[56,56],
+    iconAnchor:[28,28],
+    popupAnchor:[0,-32]
+  });
+}
+
+/* ====== add clubs to map ====== */
+Object.values(clubData).forEach(club=>{
+  const marker = L.marker([club.lat, club.lng], {
+    icon: makeClubIcon(club.logo)
+  }).addTo(map);
+
+  marker.on("click", ()=>{
+    openModalForClub(club);
+  });
+});
+</script>
+</body>
+</html>
+
